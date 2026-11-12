@@ -46,7 +46,6 @@ const SPRITES = {
     "11211111211",
     "11011011011"
   ],
-  // Jagged Crystal Diamond
   alienTop: [
     "0000110000",
     "0001221000",
@@ -56,7 +55,6 @@ const SPRITES = {
     "0001221000",
     "0000110000"
   ],
-  // Twin-Winged Fighter Drone
   alienMid: [
     "1100000011",
     "1110110111",
@@ -66,7 +64,6 @@ const SPRITES = {
     "0000110000",
     "0000000000"
   ],
-  // Chunky Space Asteroid
   alienBot: [
     "0011111000",
     "0111211100",
@@ -77,9 +74,6 @@ const SPRITES = {
     "0001110000"
   ]
 };
-
-
-
 
 let state = 'START';
 let score = 0;
@@ -149,16 +143,16 @@ function initWave() {
 function initShields() {
   shields = [];
   const positions =;
-  positions.forEach(sx => {
+  for (let i = 0; i < positions.length; i++) {
+    const sx = positions[i];
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 6; c++) {
         if (r === 3 && (c === 2 || c === 3)) continue;
         shields.push({ x: sx + c * 8, y: 515 + r * 8, w: 8, h: 8, hp: 2 });
       }
     }
-  });
+  }
 }
-
 
 function startGame() {
   score = 0;
@@ -385,4 +379,5 @@ requestAnimationFrame(loop);
 </script>
 </body>
 </html>
+
 
