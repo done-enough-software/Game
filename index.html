@@ -1,36 +1,437 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  </head>
-  <body style="margin: 0; overflow: hidden;">
-    <a-scene 
-      mindar-image="imageTargetSrc: ./targets.mind;" 
-      color-space="sRGB" 
-      vr-mode-ui="enabled: false" 
-      device-orientation-permission-ui="enabled: false">
-      
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lou's Cafe - Retro Root Beer Defense</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      user-select: none;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      color: #ffcc00;
+      text-shadow: 2px 2px #aa0000;
+      font-size: 28px;
+      letter-spacing: 2px;
+    }
+    canvas {
+      border: 4px solid #ffffff;
+      background-color: #2b1d14;
+      image-rendering: pixelated;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    }
+    .controls {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #cccccc;
+      text-align: center;
+      line-height: 1.5;
+    }
+    span.key {
+      color: #ffcc00;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
 
-      <!-- Everything inside here appears when your camera sees the lovebirds picture -->
-      
-        
-        <!-- Spinning 3D Heart Container -->
-        
-          
-          <!-- Bottom Diamond Point of the Heart -->
-          <a-box position="0 -0.15 0" rotation="0 0 45" width="0.7" height="0.7" depth="0.3" color="#FF1744"></a-box>
-          <!-- Left Top Lobe -->
-          <a-sphere position="-0.25 0.1 0" radius="0.35" color="#FF1744"></a-sphere>
-          <!-- Right Top Lobe -->
-          <a-sphere position="0.25 0.1 0" radius="0.35" color="#FF1744"></a-sphere>
-          
-        
+  <h1>LOU'S CAFE DEFENSE</h1>
+  <canvas id="gameCanvas" width="640" height="480"></canvas>
+  <div class="controls">
+    <span class="key">[UP / DOWN]</span> Change Lane &nbsp;|&nbsp;
+    <span class="key">[SPACE]</span> Throw Root Beer &nbsp;|&nbsp;
+    <span class="key">[ENTER]</span> Super Mug (Once per game)
+  </div>
 
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Game constants
+    const LANES = 6;
+    const TOP_OFFSET = 70;
+    const LANE_HEIGHT = 65;
+    const COUNTER_X = 520;
+    const GOAL_KILLS = 50;
+    const MAX_KILLS = 99;
+
+    // Game state
+    let gameState = 'START';
+    let playerLane = 2;
+    let stunTimer = 0;
+    let superAvailable = true;
+    let kills = 0;
+    let frameCount = 0;
+    let spawnTimer = 0;
+    let screenFlash = 0;
+
+    // Entities
+    let mugs = [];
+    let bullies = [];
+    let enemyShots = [];
+    let particles = [];
+
+    // Audio context for retro 8-bit beeps
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+
+    function playSound(freq, type, duration, slideTo = null) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      if (slideTo) {
+        osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+      }
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function resetGame() {
+      playerLane = 2;
+      stunTimer = 0;
+      superAvailable = true;
+      kills = 0;
+      frameCount = 0;
+      spawnTimer = 60;
+      mugs = [];
+      bullies = [];
+      enemyShots = [];
+      particles = [];
+      gameState = 'PLAYING';
+    }
+
+    // Input handling
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'Space', 'Enter'].includes(e.code)) {
+        e.preventDefault();
+      }
+
+      if (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'WIN') {
+        if (e.code === 'Space' || e.code === 'Enter') {
+          resetGame();
+        }
+        return;
+      }
+
+      if (gameState === 'PLAYING' && stunTimer <= 0) {
+        if (e.code === 'ArrowUp' && playerLane > 0) {
+          playerLane--;
+          playSound(300, 'square', 0.05);
+        } else if (e.code === 'ArrowDown' && playerLane < LANES - 1) {
+          playerLane++;
+          playSound(250, 'square', 0.05);
+        } else if (e.code === 'Space') {
+          throwMug();
+        } else if (e.code === 'Enter' && superAvailable) {
+          triggerSuperMug();
+        }
+      }
+    });
+
+    function throwMug() {
+      if (mugs.length >= 4) return;
+      mugs.push({
+        x: COUNTER_X - 20,
+        lane: playerLane,
+        speed: 7
+      });
+      playSound(500, 'square', 0.1, 800);
+    }
+
+    function triggerSuperMug() {
+      superAvailable = false;
+      screenFlash = 15;
+      playSound(150, 'sawtooth', 0.5, 900);
       
-      
-    </a-scene>
-  </body>
+      bullies.forEach(b => {
+        createExplosion(b.x, getLaneY(b.lane), '#ffcc00');
+        kills++;
+      });
+      bullies = [];
+      enemyShots = [];
+
+      if (kills >= MAX_KILLS) {
+        kills = MAX_KILLS;
+        gameState = 'WIN';
+      }
+    }
+
+    function getLaneY(lane) {
+      return TOP_OFFSET + lane * LANE_HEIGHT + LANE_HEIGHT / 2;
+    }
+
+    function createExplosion(x, y, color) {
+      for (let i = 0; i < 12; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 0.5) * 6,
+          life: 20,
+          color: color
+        });
+      }
+    }
+    function update() {
+      if (gameState !== 'PLAYING') return;
+
+      frameCount++;
+      if (stunTimer > 0) stunTimer--;
+      if (screenFlash > 0) screenFlash--;
+
+      // Difficulty scaling based on kills
+      const speedMultiplier = 1 + (kills / 45);
+      const spawnRate = Math.max(30, 95 - kills);
+
+      // Spawn bullies
+      spawnTimer--;
+      if (spawnTimer <= 0) {
+        const lane = Math.floor(Math.random() * LANES);
+        const isFast = kills > 15 && Math.random() < 0.3;
+        bullies.push({
+          x: -20,
+          lane: lane,
+          speed: (isFast ? 1.8 : 1.1) * speedMultiplier,
+          color: isFast ? '#d32f2f' : '#388e3c',
+          shootCooldown: Math.floor(Math.random() * 120) + 80
+        });
+        spawnTimer = spawnRate;
+      }
+
+      // Update player mugs
+      for (let i = mugs.length - 1; i >= 0; i--) {
+        mugs[i].x -= mugs[i].speed;
+        if (mugs[i].x < -20) {
+          mugs.splice(i, 1);
+        }
+      }
+
+      // Update bullies
+      for (let i = bullies.length - 1; i >= 0; i--) {
+        let b = bullies[i];
+        b.x += b.speed;
+
+        // Bullies throw shakes back once kills >= 10
+        if (kills >= 10) {
+          b.shootCooldown--;
+          if (b.shootCooldown <= 0 && b.x < 350) {
+            enemyShots.push({
+              x: b.x + 20,
+              lane: b.lane,
+              speed: 4 * speedMultiplier
+            });
+            b.shootCooldown = 180;
+            playSound(200, 'triangle', 0.1, 100);
+          }
+        }
+
+        // Check collision with player mugs
+        let hit = false;
+        for (let j = mugs.length - 1; j >= 0; j--) {
+          let m = mugs[j];
+          if (m.lane === b.lane && Math.abs(m.x - b.x) < 25) {
+            mugs.splice(j, 1);
+            hit = true;
+            break;
+          }
+        }
+
+        if (hit) {
+          createExplosion(b.x, getLaneY(b.lane), '#ffffff');
+          playSound(180, 'square', 0.15, 60);
+          bullies.splice(i, 1);
+          kills++;
+          if (kills >= MAX_KILLS) {
+            gameState = 'WIN';
+          }
+          continue;
+        }
+
+        // Check if bully reached the counter
+        if (b.x >= COUNTER_X - 15) {
+          playSound(100, 'sawtooth', 0.6, 40);
+          if (kills >= GOAL_KILLS) {
+            gameState = 'WIN';
+          } else {
+            gameState = 'GAMEOVER';
+          }
+        }
+      }
+
+      // Update enemy shots
+      for (let i = enemyShots.length - 1; i >= 0; i--) {
+        let s = enemyShots[i];
+        s.x += s.speed;
+
+        // Hit player
+        if (s.lane === playerLane && Math.abs(s.x - (COUNTER_X + 35)) < 25) {
+          stunTimer = 60;
+          createExplosion(COUNTER_X + 35, getLaneY(playerLane), '#ff80ab');
+          playSound(120, 'sawtooth', 0.3, 50);
+          enemyShots.splice(i, 1);
+          continue;
+        }
+
+        if (s.x > canvas.width) {
+          enemyShots.splice(i, 1);
+        }
+      }
+
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    // Pixel Art Drawing Helpers
+    function drawPixelRect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
+    }
+
+    function drawBackground() {
+      drawPixelRect(0, 0, canvas.width, canvas.height, '#3e2723');
+
+      // Checkerboard floor pattern
+      for (let r = 0; r < LANES; r++) {
+        const y = TOP_OFFSET + r * LANE_HEIGHT;
+        drawPixelRect(0, y, COUNTER_X, LANE_HEIGHT - 4, r % 2 === 0 ? '#4e342e' : '#5d4037');
+        drawPixelRect(0, y + LANE_HEIGHT - 4, COUNTER_X, 4, '#261815');
+      }
+
+      // The Diner Counter
+      drawPixelRect(COUNTER_X, TOP_OFFSET, 24, LANES * LANE_HEIGHT, '#d7ccc8');
+      drawPixelRect(COUNTER_X + 4, TOP_OFFSET, 16, LANES * LANE_HEIGHT, '#efebe9');
+      drawPixelRect(COUNTER_X + 24, TOP_OFFSET, 96, LANES * LANE_HEIGHT, '#212121');
+
+      // Top HUD bar
+      drawPixelRect(0, 0, canvas.width, TOP_OFFSET, '#000000');
+      drawPixelRect(0, TOP_OFFSET - 4, canvas.width, 4, '#ffcc00');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 20px "Courier New", monospace';
+      ctx.fillText(`BULLIES: ${kills} / ${GOAL_KILLS}`, 20, 30);
+
+      ctx.fillStyle = kills >= GOAL_KILLS ? '#4caf50' : '#aaaaaa';
+      ctx.font = '14px "Courier New", monospace';
+      ctx.fillText(kills >= GOAL_KILLS ? 'QUOTA MET! SURVIVE TO 99!' : 'KNOCK OUT 50 TO CLEAR STAGE', 20, 52);
+
+      // Super Mug indicator
+      ctx.fillStyle = superAvailable ? '#ffcc00' : '#555555';
+      ctx.font = 'bold 18px "Courier New", monospace';
+      ctx.fillText(superAvailable ? '[SUPER MUG: READY]' : '[SUPER MUG: USED]', 410, 40);
+    }
+
+    function drawPlayer() {
+      const x = COUNTER_X + 35;
+      const y = getLaneY(playerLane);
+
+      if (stunTimer > 0 && Math.floor(frameCount / 4) % 2 === 0) return;
+
+      drawPixelRect(x - 10, y - 12, 20, 24, '#1976d2');
+      drawPixelRect(x - 8, y - 12, 16, 18, '#ff5722');
+      drawPixelRect(x - 8, y - 26, 16, 14, '#ffccbc');
+      drawPixelRect(x - 8, y - 28, 18, 6, '#5d4037');
+      if (stunTimer > 0) {
+        drawPixelRect(x - 10, y - 24, 20, 12, '#f8bbd0');
+      }
+    }
+
+    function drawBully(b) {
+      const y = getLaneY(b.lane);
+      const bob = Math.sin(frameCount * 0.2 + b.x * 0.1) * 3;
+
+      drawPixelRect(b.x - 12, y - 14 + bob, 24, 28, b.color);
+      drawPixelRect(b.x - 9, y - 28 + bob, 18, 14, '#ffccbc');
+      drawPixelRect(b.x - 10, y - 30 + bob, 20, 5, '#212121');
+      drawPixelRect(b.x + 2, y - 22 + bob, 6, 3, '#000000');
+    }
+
+    function drawMug(m) {
+      const y = getLaneY(m.lane);
+      drawPixelRect(m.x - 8, y - 10, 16, 20, '#8d6e63');
+      drawPixelRect(m.x - 9, y - 14, 18, 6, '#ffffff');
+      drawPixelRect(m.x + 8, y - 6, 4, 12, '#cfd8dc');
+    }
+
+    function drawEnemyShot(s) {
+      const y = getLaneY(s.lane);
+      drawPixelRect(s.x - 7, y - 8, 14, 16, '#f48fb1');
+      drawPixelRect(s.x - 8, y - 11, 16, 4, '#ffffff');
+    }
+
+    function drawOverlay(title, subtitle, color) {
+      drawPixelRect(80, 150, 480, 180, 'rgba(0, 0, 0, 0.9)');
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(80, 150, 480, 180);
+
+      ctx.fillStyle = color;
+      ctx.font = 'bold 32px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, canvas.width / 2, 215);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '18px "Courier New", monospace';
+      ctx.fillText(subtitle, canvas.width / 2, 260);
+
+      ctx.fillStyle = '#ffcc00';
+      ctx.font = '16px "Courier New", monospace';
+      ctx.fillText('PRESS [SPACE] TO PLAY', canvas.width / 2, 300);
+      ctx.textAlign = 'left';
+    }
+
+    function draw() {
+      drawBackground();
+
+      bullies.forEach(drawBully);
+      mugs.forEach(drawMug);
+      enemyShots.forEach(drawEnemyShot);
+      drawPlayer();
+
+      particles.forEach(p => {
+        drawPixelRect(p.x, p.y, 4, 4, p.color);
+      });
+
+      if (screenFlash > 0) {
+        drawPixelRect(0, 0, canvas.width, canvas.height, 'rgba(255, 255, 255, 0.6)');
+      }
+
+      if (gameState === 'START') {
+        drawOverlay("LOU'S CAFE", "STOP 50 BULLIES FROM REACHING THE BAR!", "#ffcc00");
+      } else if (gameState === 'GAMEOVER') {
+        drawOverlay("THROWN OUT!", `YOU ONLY GOT ${kills} / ${GOAL_KILLS} BULLIES`, "#f44336");
+      } else if (gameState === 'WIN') {
+        drawOverlay("STAGE CLEAR!", `FINAL SCORE: ${kills} BULLIES STOPPED!`, "#4caf50");
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
 </html>
