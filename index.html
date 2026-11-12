@@ -4,18 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mug AR Secret Symbol</title>
-    <!-- Load A-Frame and MindAR libraries -->
     <script src="https://aframe.io"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://jsdelivr.net"></script>
     <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-      }
+      body { margin: 0; overflow: hidden; }
     </style>
   </head>
   <body>
-    <!-- Point imageTargetSrc to your compiled .mind file -->
     <a-scene
       mindar-image="imageTargetSrc: ./targets.mind;"
       color-space="sRGB"
@@ -23,24 +18,20 @@
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
     >
-      <!-- Preload your hidden symbol image -->
       <a-assets>
         <img id="hidden-symbol" src="./symbol.jpg" crossorigin="anonymous" />
       </a-assets>
 
-      <!-- AR Camera -->
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Target Anchor (targetIndex: 0 matches the first image in targets.mind) -->
       
-        <!-- Floating Hidden Symbol -->
-        <a-image
-          src="#hidden-symbol"
-          position="0 0 0.15"
-          height="0.6"
-          width="0.6"
-          animation="property: position; to: 0 0.08 0.15; dur: 1200; easing: easeInOutSine; loop: true; dir: alternate"
-        ></a-image>
+        <a-text
+          value="SECRET UNLOCKED!"
+          color="#00FF00"
+          align="center"
+          position="0 0 0.2"
+          scale="0.8 0.8 0.8"
+        ></a-text>
       
     </a-scene>
   </body>
