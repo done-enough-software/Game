@@ -95,7 +95,7 @@
     <button id="superBtn">SUPER MUG</button>
   </div>
 
-  <script>
+    <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const superBtn = document.getElementById('superBtn');
@@ -149,7 +149,6 @@
       osc.stop(audioCtx.currentTime + duration);
     }
 
-    // Request iOS/Android motion sensor permission on first tap
     function enableTiltControls() {
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
@@ -168,11 +167,9 @@
       if (gameState !== 'PLAYING' || stunTimer > 0) return;
       if (tiltCooldown > 0) return;
 
-      // In landscape mode, gamma measures forward/backward tilt
       let tilt = event.gamma;
       if (tilt === null) return;
 
-      // Adjust for which side the phone is rotated to
       const orientation = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
       if (orientation === -90 || orientation === 270) {
         tilt = -tilt;
@@ -184,11 +181,11 @@
       }
 
       const diff = tilt - baseTilt;
-      const threshold = 10; // Degrees of tilt needed to step a lane
+      const threshold = 10;
 
       if (diff > threshold && playerLane > 0) {
         playerLane--;
-        tiltCooldown = 12; // Frames before next lane step
+        tiltCooldown = 12;
         playSound(300, 'square', 0.05);
       } else if (diff < -threshold && playerLane < LANES - 1) {
         playerLane++;
@@ -205,14 +202,14 @@
       kills = 0;
       frameCount = 0;
       spawnTimer = 60;
-      baseTilt = null; // Recalibrate neutral tilt angle on start
+      baseTilt = null;
       mugs = [];
       bullies = [];
       enemyShots = [];
       particles = [];
       gameState = 'PLAYING';
     }
-        // Tap anywhere on the screen to start or throw root beer
+
     function handleTap(e) {
       if (e.target === superBtn) return;
       e.preventDefault();
@@ -231,7 +228,6 @@
     canvas.addEventListener('touchstart', handleTap, { passive: false });
     canvas.addEventListener('mousedown', handleTap);
 
-    // Super Mug button tap
     superBtn.addEventListener('touchstart', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -244,23 +240,6 @@
       e.stopPropagation();
       if (gameState === 'PLAYING' && stunTimer <= 0 && superAvailable) {
         triggerSuperMug();
-      }
-    });
-
-    // Keep keyboard support just in case
-    window.addEventListener('keydown', (e) => {
-      if (['ArrowUp', 'ArrowDown', 'Space', 'Enter'].includes(e.code)) {
-        e.preventDefault();
-      }
-      if (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'WIN') {
-        if (e.code === 'Space' || e.code === 'Enter') resetGame();
-        return;
-      }
-      if (gameState === 'PLAYING' && stunTimer <= 0) {
-        if (e.code === 'ArrowUp' && playerLane > 0) playerLane--;
-        else if (e.code === 'ArrowDown' && playerLane < LANES - 1) playerLane++;
-        else if (e.code === 'Space') throwMug();
-        else if (e.code === 'Enter' && superAvailable) triggerSuperMug();
       }
     });
 
@@ -309,7 +288,6 @@
         });
       }
     }
-
     function update() {
       if (gameState !== 'PLAYING') return;
 
@@ -537,4 +515,12 @@
     function gameLoop() {
       update();
       draw();
-    
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
+
+      
