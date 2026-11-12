@@ -2,29 +2,64 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://aframe.io"></script>
+    <script src="https://jsdelivr.net"></script>
     <style>
-      body {
-        margin: 0;
-        background: black;
-      }
-      video {
-        width: 100vw;
-        height: 100vh;
-        object-fit: cover;
+      body { margin: 0; overflow: hidden; }
+      #status {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.75);
+        color: #00ff00;
+        font-family: sans-serif;
+        font-size: 16px;
+        padding: 10px;
+        border-radius: 8px;
+        z-index: 9999;
+        text-align: center;
       }
     </style>
   </head>
   <body>
-    <video id="cam" autoplay playsinline></video>
+    <div id="status">Loading AR engine...</div>
+
+    <a-scene
+      id="ar-scene"
+      mindar-image="imageTargetSrc: ./targets.mind;"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+    >
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <!-- When the mug is spotted, a bright green 3D cube will appear -->
+      
+        <a-box color="#00FF00" position="0 0 0.15" scale="0.4 0.4 0.4"></a-box>
+      
+    </a-scene>
+
     <script>
-      navigator.mediaDevices
-        .getUserMedia({ video: { facingMode: "environment" } })
-        .then((stream) => {
-          document.getElementById("cam").srcObject = stream;
-        })
-        .catch((err) => {
-          alert("Camera error: " + err.message);
-        });
+      const statusBox = document.getElementById("status");
+      const sceneEl = document.getElementById("ar-scene");
+      const targetEl = document.getElementById("mug-target");
+
+      sceneEl.addEventListener("arReady", () => {
+        statusBox.textContent = "AR Ready! Point camera at the mug.";
+      });
+
+      sceneEl.addEventListener("arError", () => {
+        statusBox.textContent = "AR Error: Could not load targets.mind or camera.";
+        statusBox.style.color = "#ff4444";
+      });
+
+      targetEl.addEventListener("targetFound", () => {
+        statusBox.textContent = "MUG FOUND!";
+      });
+
+      targetEl.addEventListener("targetLost", () => {
+        statusBox.textContent = "Scanning for mug...";
+      });
     </script>
   </body>
 </html>
