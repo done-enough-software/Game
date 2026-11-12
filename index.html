@@ -36,7 +36,7 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const SPRITES = {
-  player: [
+  player: new Array(
     "00000100000",
     "00001210000",
     "00001110000",
@@ -45,8 +45,8 @@ const SPRITES = {
     "01111111110",
     "11211111211",
     "11011011011"
-  ],
-  alienTop: [
+  ),
+  alienTop: new Array(
     "0000110000",
     "0001221000",
     "0012112100",
@@ -54,8 +54,8 @@ const SPRITES = {
     "0012112100",
     "0001221000",
     "0000110000"
-  ],
-  alienMid: [
+  ),
+  alienMid: new Array(
     "1100000011",
     "1110110111",
     "1111221111",
@@ -63,8 +63,8 @@ const SPRITES = {
     "1000110001",
     "0000110000",
     "0000000000"
-  ],
-  alienBot: [
+  ),
+  alienBot: new Array(
     "0011111000",
     "0111211100",
     "1121111110",
@@ -72,7 +72,7 @@ const SPRITES = {
     "0111111210",
     "0011211100",
     "0001110000"
-  ]
+  )
 };
 
 let state = 'START';
@@ -82,16 +82,15 @@ let wave = 1;
 let lives = 3;
 
 const player = { x: 163, y: 580, w: 33, h: 24, lastShot: 0 };
-let bullets = [];
-let enemyBullets = [];
-let aliens = [];
-let shields = [];
-let particles = [];
-let stars = Array.from({length: 40}, () => ({
-  x: Math.random() * 360,
-  y: Math.random() * 640,
-  s: Math.random() * 1.5 + 0.5
-}));
+let bullets = new Array();
+let enemyBullets = new Array();
+let aliens = new Array();
+let shields = new Array();
+let particles = new Array();
+let stars = new Array();
+for (let i = 0; i < 40; i++) {
+  stars.push({ x: Math.random() * 360, y: Math.random() * 640, s: Math.random() * 1.5 + 0.5 });
+}
 
 let alienDir = 1;
 let alienSpeed = 0.45;
@@ -104,8 +103,9 @@ window.addEventListener('deviceorientation', (e) => {
 
 function drawSprite(grid, x, y, scale, c1, c2) {
   for (let r = 0; r < grid.length; r++) {
-    for (let c = 0; c < grid[r].length; c++) {
-      const val = grid[r][c];
+    const row = grid.at(r);
+    for (let c = 0; c < row.length; c++) {
+      const val = row.charAt(c);
       if (val === '0') continue;
       ctx.fillStyle = val === '1' ? c1 : c2;
       ctx.fillRect(Math.floor(x + c * scale), Math.floor(y + r * scale), scale, scale);
@@ -126,9 +126,9 @@ function createParticles(x, y, color) {
 }
 
 function initWave() {
-  aliens = [];
-  bullets = [];
-  enemyBullets = [];
+  aliens = new Array();
+  bullets = new Array();
+  enemyBullets = new Array();
   for (let r = 0; r < 5; r++) {
     for (let c = 0; c < 7; c++) {
       let type = r === 0 ? 'alienTop' : (r < 3 ? 'alienMid' : 'alienBot');
@@ -140,19 +140,18 @@ function initWave() {
   alienDir = 1;
   alienSpeed = 0.4 + (wave * 0.12);
 }
-function initShields() {
-  shields = [];
-  const positions = new Array(52, 156, 260);
 
-  for (let i = 0; i < positions.length; i++) {
-    const sx = positions[i];
+function initShields() {
+  shields = new Array();
+  const positions = new Array(52, 156, 260);
+  positions.forEach(sx => {
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 6; c++) {
         if (r === 3 && (c === 2 || c === 3)) continue;
         shields.push({ x: sx + c * 8, y: 515 + r * 8, w: 8, h: 8, hp: 2 });
       }
     }
-  }
+  });
 }
 
 function startGame() {
@@ -234,7 +233,7 @@ function update(now) {
   }
 
   if (aliens.length > 0 && Math.random() < 0.015 + wave * 0.004) {
-    const shooter = aliens[Math.floor(Math.random() * aliens.length)];
+    const shooter = aliens.at(Math.floor(Math.random() * aliens.length));
     enemyBullets.push({ x: shooter.x + 14, y: shooter.y + 20, w: 4, h: 10 });
   }
 
@@ -242,14 +241,16 @@ function update(now) {
   enemyBullets = enemyBullets.filter(eb => eb.y < 650);
 
   for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets.at(i);
     for (let j = aliens.length - 1; j >= 0; j--) {
-      if (rectHit(bullets[i], aliens[j])) {
-        score += aliens[j].pts;
+      const a = aliens.at(j);
+      if (rectHit(b, a)) {
+        score += a.pts;
         if (score > highScore) {
           highScore = score;
           localStorage.setItem('cosmicSwarmBest', highScore);
         }
-        createParticles(aliens[j].x + 15, aliens[j].y + 10, aliens[j].c1);
+        createParticles(a.x + 15, a.y + 10, a.c1);
         aliens.splice(j, 1);
         bullets.splice(i, 1);
         break;
@@ -257,12 +258,15 @@ function update(now) {
     }
   }
 
-  [bullets, enemyBullets].forEach(list => {
+  const bulletGroups = new Array(bullets, enemyBullets);
+  bulletGroups.forEach(list => {
     for (let i = list.length - 1; i >= 0; i--) {
+      const b = list.at(i);
       for (let j = shields.length - 1; j >= 0; j--) {
-        if (rectHit(list[i], shields[j])) {
-          shields[j].hp--;
-          if (shields[j].hp <= 0) shields.splice(j, 1);
+        const s = shields.at(j);
+        if (rectHit(b, s)) {
+          s.hp--;
+          if (s.hp <= 0) shields.splice(j, 1);
           list.splice(i, 1);
           break;
         }
@@ -271,7 +275,8 @@ function update(now) {
   });
 
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
-    if (rectHit(enemyBullets[i], player)) {
+    const eb = enemyBullets.at(i);
+    if (rectHit(eb, player)) {
       enemyBullets.splice(i, 1);
       lives--;
       createParticles(player.x + 16, player.y + 12, '#00ffaa');
@@ -318,7 +323,7 @@ function draw() {
 
     ctx.fillStyle = '#fee440';
     ctx.font = 'bold 20px monospace';
-    ctx.fillText('[ TAP TO START ]', 180, 430);
+    ctx.fillText('TAP TO START', 180, 430);
 
     ctx.fillStyle = '#6c759c';
     ctx.font = '12px monospace';
@@ -333,7 +338,12 @@ function draw() {
 
   if (lives > 0) drawSprite(SPRITES.player, player.x, player.y, 3, '#00ffaa', '#ffffff');
 
-  aliens.forEach(a => drawSprite(SPRITES[a.type], a.x, a.y, 3, a.c1, '#ffffff'));
+  aliens.forEach(a => {
+    let grid = SPRITES.alienBot;
+    if (a.type === 'alienTop') grid = SPRITES.alienTop;
+    else if (a.type === 'alienMid') grid = SPRITES.alienMid;
+    drawSprite(grid, a.x, a.y, 3, a.c1, '#ffffff');
+  });
 
   ctx.fillStyle = '#00ffaa';
   bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
@@ -366,7 +376,7 @@ function draw() {
 
     ctx.fillStyle = '#fee440';
     ctx.font = 'bold 18px monospace';
-    ctx.fillText('[ TAP TO PLAY AGAIN ]', 180, 410);
+    ctx.fillText('TAP TO PLAY AGAIN', 180, 410);
   }
 }
 
