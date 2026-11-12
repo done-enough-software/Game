@@ -1,38 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mug AR Secret Symbol</title>
-    <script src="https://aframe.io"></script>
-    <script src="https://jsdelivr.net"></script>
     <style>
-      body { margin: 0; overflow: hidden; }
+      body {
+        margin: 0;
+        background: black;
+      }
+      video {
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+      }
     </style>
   </head>
   <body>
-    <a-scene
-      mindar-image="imageTargetSrc: ./targets.mind;"
-      color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-    >
-      <a-assets>
-        <img id="hidden-symbol" src="./symbol.png" crossorigin="anonymous" />
-      </a-assets>
-
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-      
-        <a-text
-          value="SECRET UNLOCKED!"
-          color="#00FF00"
-          align="center"
-          position="0 0 0.2"
-          scale="0.8 0.8 0.8"
-        ></a-text>
-      
-    </a-scene>
+    <video id="cam" autoplay playsinline></video>
+    <script>
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: "environment" } })
+        .then((stream) => {
+          document.getElementById("cam").srcObject = stream;
+        })
+        .catch((err) => {
+          alert("Camera error: " + err.message);
+        });
+    </script>
   </body>
 </html>
