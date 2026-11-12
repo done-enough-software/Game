@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Lou's Cafe - Retro Root Beer Defense</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lou's Cafe - Mobile Root Beer Defense</title>
   <style>
+    * {
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
     body {
       background-color: #121212;
       color: #ffffff;
@@ -13,48 +18,87 @@
       align-items: center;
       justify-content: center;
       height: 100vh;
+      width: 100vw;
       margin: 0;
+      padding: 0;
+      overflow: hidden;
       user-select: none;
+      -webkit-user-select: none;
     }
-    h1 {
-      margin: 0 0 10px 0;
-      color: #ffcc00;
-      text-shadow: 2px 2px #aa0000;
-      font-size: 28px;
-      letter-spacing: 2px;
+    #gameContainer {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     canvas {
-      border: 4px solid #ffffff;
+      border: 3px solid #ffffff;
       background-color: #2b1d14;
       image-rendering: pixelated;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+      max-width: 100vw;
+      max-height: 100vh;
+      aspect-ratio: 4 / 3;
     }
-    .controls {
-      margin-top: 12px;
-      font-size: 14px;
-      color: #cccccc;
-      text-align: center;
-      line-height: 1.5;
-    }
-    span.key {
-      color: #ffcc00;
+    #superBtn {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background-color: #ffcc00;
+      color: #121212;
+      border: 3px solid #ffffff;
+      font-family: 'Courier New', Courier, monospace;
       font-weight: bold;
+      font-size: 15px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      z-index: 10;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+    }
+    #superBtn:disabled {
+      background-color: #444444;
+      color: #888888;
+      border-color: #666666;
+    }
+    #rotateWarning {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      color: #ffcc00;
+      z-index: 999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    @media screen and (orientation: portrait) {
+      #rotateWarning {
+        display: flex;
+      }
     }
   </style>
 </head>
 <body>
 
-  <h1>LOU'S CAFE DEFENSE</h1>
-  <canvas id="gameCanvas" width="640" height="480"></canvas>
-  <div class="controls">
-    <span class="key">[UP / DOWN]</span> Change Lane &nbsp;|&nbsp;
-    <span class="key">[SPACE]</span> Throw Root Beer &nbsp;|&nbsp;
-    <span class="key">[ENTER]</span> Super Mug (Once per game)
+  <div id="rotateWarning">
+    <div>ROTATE YOUR PHONE HORIZONTALLY</div>
+    <div style="font-size: 14px; color: #ffffff; margin-top: 10px;">Turn sideways to play in landscape mode!</div>
+  </div>
+
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+    <button id="superBtn">SUPER MUG</button>
   </div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const superBtn = document.getElementById('superBtn');
 
     // Game constants
     const LANES = 6;
@@ -74,13 +118,17 @@
     let spawnTimer = 0;
     let screenFlash = 0;
 
+    // Tilt control state
+    let baseTilt = null;
+    let tiltCooldown = 0;
+
     // Entities
     let mugs = [];
     let bullies = [];
     let enemyShots = [];
     let particles = [];
 
-    // Audio context for retro 8-bit beeps
+    // Audio context
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContext();
 
@@ -101,45 +149,118 @@
       osc.stop(audioCtx.currentTime + duration);
     }
 
+    // Request iOS/Android motion sensor permission on first tap
+    function enableTiltControls() {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === 'granted') {
+              window.addEventListener('deviceorientation', handleTilt);
+            }
+          })
+          .catch(console.error);
+      } else {
+        window.addEventListener('deviceorientation', handleTilt);
+      }
+    }
+
+    function handleTilt(event) {
+      if (gameState !== 'PLAYING' || stunTimer > 0) return;
+      if (tiltCooldown > 0) return;
+
+      // In landscape mode, gamma measures forward/backward tilt
+      let tilt = event.gamma;
+      if (tilt === null) return;
+
+      // Adjust for which side the phone is rotated to
+      const orientation = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+      if (orientation === -90 || orientation === 270) {
+        tilt = -tilt;
+      }
+
+      if (baseTilt === null) {
+        baseTilt = tilt;
+        return;
+      }
+
+      const diff = tilt - baseTilt;
+      const threshold = 10; // Degrees of tilt needed to step a lane
+
+      if (diff > threshold && playerLane > 0) {
+        playerLane--;
+        tiltCooldown = 12; // Frames before next lane step
+        playSound(300, 'square', 0.05);
+      } else if (diff < -threshold && playerLane < LANES - 1) {
+        playerLane++;
+        tiltCooldown = 12;
+        playSound(250, 'square', 0.05);
+      }
+    }
+
     function resetGame() {
       playerLane = 2;
       stunTimer = 0;
       superAvailable = true;
+      superBtn.disabled = false;
       kills = 0;
       frameCount = 0;
       spawnTimer = 60;
+      baseTilt = null; // Recalibrate neutral tilt angle on start
       mugs = [];
       bullies = [];
       enemyShots = [];
       particles = [];
       gameState = 'PLAYING';
     }
-
-    // Input handling
-    window.addEventListener('keydown', (e) => {
-      if (['ArrowUp', 'ArrowDown', 'Space', 'Enter'].includes(e.code)) {
-        e.preventDefault();
-      }
+        // Tap anywhere on the screen to start or throw root beer
+    function handleTap(e) {
+      if (e.target === superBtn) return;
+      e.preventDefault();
 
       if (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'WIN') {
-        if (e.code === 'Space' || e.code === 'Enter') {
-          resetGame();
-        }
+        enableTiltControls();
+        resetGame();
         return;
       }
 
       if (gameState === 'PLAYING' && stunTimer <= 0) {
-        if (e.code === 'ArrowUp' && playerLane > 0) {
-          playerLane--;
-          playSound(300, 'square', 0.05);
-        } else if (e.code === 'ArrowDown' && playerLane < LANES - 1) {
-          playerLane++;
-          playSound(250, 'square', 0.05);
-        } else if (e.code === 'Space') {
-          throwMug();
-        } else if (e.code === 'Enter' && superAvailable) {
-          triggerSuperMug();
-        }
+        throwMug();
+      }
+    }
+
+    canvas.addEventListener('touchstart', handleTap, { passive: false });
+    canvas.addEventListener('mousedown', handleTap);
+
+    // Super Mug button tap
+    superBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (gameState === 'PLAYING' && stunTimer <= 0 && superAvailable) {
+        triggerSuperMug();
+      }
+    }, { passive: false });
+
+    superBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (gameState === 'PLAYING' && stunTimer <= 0 && superAvailable) {
+        triggerSuperMug();
+      }
+    });
+
+    // Keep keyboard support just in case
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'Space', 'Enter'].includes(e.code)) {
+        e.preventDefault();
+      }
+      if (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'WIN') {
+        if (e.code === 'Space' || e.code === 'Enter') resetGame();
+        return;
+      }
+      if (gameState === 'PLAYING' && stunTimer <= 0) {
+        if (e.code === 'ArrowUp' && playerLane > 0) playerLane--;
+        else if (e.code === 'ArrowDown' && playerLane < LANES - 1) playerLane++;
+        else if (e.code === 'Space') throwMug();
+        else if (e.code === 'Enter' && superAvailable) triggerSuperMug();
       }
     });
 
@@ -155,6 +276,7 @@
 
     function triggerSuperMug() {
       superAvailable = false;
+      superBtn.disabled = true;
       screenFlash = 15;
       playSound(150, 'sawtooth', 0.5, 900);
       
@@ -187,18 +309,18 @@
         });
       }
     }
+
     function update() {
       if (gameState !== 'PLAYING') return;
 
       frameCount++;
       if (stunTimer > 0) stunTimer--;
       if (screenFlash > 0) screenFlash--;
+      if (tiltCooldown > 0) tiltCooldown--;
 
-      // Difficulty scaling based on kills
       const speedMultiplier = 1 + (kills / 45);
       const spawnRate = Math.max(30, 95 - kills);
 
-      // Spawn bullies
       spawnTimer--;
       if (spawnTimer <= 0) {
         const lane = Math.floor(Math.random() * LANES);
@@ -213,7 +335,6 @@
         spawnTimer = spawnRate;
       }
 
-      // Update player mugs
       for (let i = mugs.length - 1; i >= 0; i--) {
         mugs[i].x -= mugs[i].speed;
         if (mugs[i].x < -20) {
@@ -221,12 +342,10 @@
         }
       }
 
-      // Update bullies
       for (let i = bullies.length - 1; i >= 0; i--) {
         let b = bullies[i];
         b.x += b.speed;
 
-        // Bullies throw shakes back once kills >= 10
         if (kills >= 10) {
           b.shootCooldown--;
           if (b.shootCooldown <= 0 && b.x < 350) {
@@ -240,7 +359,6 @@
           }
         }
 
-        // Check collision with player mugs
         let hit = false;
         for (let j = mugs.length - 1; j >= 0; j--) {
           let m = mugs[j];
@@ -262,7 +380,6 @@
           continue;
         }
 
-        // Check if bully reached the counter
         if (b.x >= COUNTER_X - 15) {
           playSound(100, 'sawtooth', 0.6, 40);
           if (kills >= GOAL_KILLS) {
@@ -273,12 +390,10 @@
         }
       }
 
-      // Update enemy shots
       for (let i = enemyShots.length - 1; i >= 0; i--) {
         let s = enemyShots[i];
         s.x += s.speed;
 
-        // Hit player
         if (s.lane === playerLane && Math.abs(s.x - (COUNTER_X + 35)) < 25) {
           stunTimer = 60;
           createExplosion(COUNTER_X + 35, getLaneY(playerLane), '#ff80ab');
@@ -292,7 +407,6 @@
         }
       }
 
-      // Update particles
       for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
         p.x += p.vx;
@@ -302,7 +416,6 @@
       }
     }
 
-    // Pixel Art Drawing Helpers
     function drawPixelRect(x, y, w, h, color) {
       ctx.fillStyle = color;
       ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
@@ -311,19 +424,16 @@
     function drawBackground() {
       drawPixelRect(0, 0, canvas.width, canvas.height, '#3e2723');
 
-      // Checkerboard floor pattern
       for (let r = 0; r < LANES; r++) {
         const y = TOP_OFFSET + r * LANE_HEIGHT;
         drawPixelRect(0, y, COUNTER_X, LANE_HEIGHT - 4, r % 2 === 0 ? '#4e342e' : '#5d4037');
         drawPixelRect(0, y + LANE_HEIGHT - 4, COUNTER_X, 4, '#261815');
       }
 
-      // The Diner Counter
       drawPixelRect(COUNTER_X, TOP_OFFSET, 24, LANES * LANE_HEIGHT, '#d7ccc8');
       drawPixelRect(COUNTER_X + 4, TOP_OFFSET, 16, LANES * LANE_HEIGHT, '#efebe9');
       drawPixelRect(COUNTER_X + 24, TOP_OFFSET, 96, LANES * LANE_HEIGHT, '#212121');
 
-      // Top HUD bar
       drawPixelRect(0, 0, canvas.width, TOP_OFFSET, '#000000');
       drawPixelRect(0, TOP_OFFSET - 4, canvas.width, 4, '#ffcc00');
 
@@ -333,9 +443,8 @@
 
       ctx.fillStyle = kills >= GOAL_KILLS ? '#4caf50' : '#aaaaaa';
       ctx.font = '14px "Courier New", monospace';
-      ctx.fillText(kills >= GOAL_KILLS ? 'QUOTA MET! SURVIVE TO 99!' : 'KNOCK OUT 50 TO CLEAR STAGE', 20, 52);
+      ctx.fillText(kills >= GOAL_KILLS ? 'QUOTA MET! SURVIVE TO 99!' : 'TILT TO MOVE • TAP TO THROW', 20, 52);
 
-      // Super Mug indicator
       ctx.fillStyle = superAvailable ? '#ffcc00' : '#555555';
       ctx.font = 'bold 18px "Courier New", monospace';
       ctx.fillText(superAvailable ? '[SUPER MUG: READY]' : '[SUPER MUG: USED]', 410, 40);
@@ -380,23 +489,23 @@
     }
 
     function drawOverlay(title, subtitle, color) {
-      drawPixelRect(80, 150, 480, 180, 'rgba(0, 0, 0, 0.9)');
+      drawPixelRect(60, 145, 520, 190, 'rgba(0, 0, 0, 0.92)');
       ctx.strokeStyle = color;
       ctx.lineWidth = 4;
-      ctx.strokeRect(80, 150, 480, 180);
+      ctx.strokeRect(60, 145, 520, 190);
 
       ctx.fillStyle = color;
       ctx.font = 'bold 32px "Courier New", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(title, canvas.width / 2, 215);
+      ctx.fillText(title, canvas.width / 2, 205);
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = '18px "Courier New", monospace';
-      ctx.fillText(subtitle, canvas.width / 2, 260);
+      ctx.font = '17px "Courier New", monospace';
+      ctx.fillText(subtitle, canvas.width / 2, 250);
 
       ctx.fillStyle = '#ffcc00';
-      ctx.font = '16px "Courier New", monospace';
-      ctx.fillText('PRESS [SPACE] TO PLAY', canvas.width / 2, 300);
+      ctx.font = 'bold 18px "Courier New", monospace';
+      ctx.fillText('TAP SCREEN TO PLAY', canvas.width / 2, 295);
       ctx.textAlign = 'left';
     }
 
@@ -417,7 +526,7 @@
       }
 
       if (gameState === 'START') {
-        drawOverlay("LOU'S CAFE", "STOP 50 BULLIES FROM REACHING THE BAR!", "#ffcc00");
+        drawOverlay("LOU'S CAFE", "TILT PHONE TO MOVE • TAP TO THROW", "#ffcc00");
       } else if (gameState === 'GAMEOVER') {
         drawOverlay("THROWN OUT!", `YOU ONLY GOT ${kills} / ${GOAL_KILLS} BULLIES`, "#f44336");
       } else if (gameState === 'WIN') {
@@ -428,10 +537,4 @@
     function gameLoop() {
       update();
       draw();
-      requestAnimationFrame(gameLoop);
-    }
-
-    gameLoop();
-  </script>
-</body>
-</html>
+    
