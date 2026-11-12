@@ -6,25 +6,29 @@
     <script src="https://jsdelivr.net"></script>
   </head>
   <body style="margin: 0; overflow: hidden;">
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind;" color-space="sRGB" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-      <a-camera position="0 0 0" look-controls="enabled: false" cursor="rayOrigin: mouse;" raycaster="objects: .clickable"></a-camera>
+    <a-scene 
+      mindar-image="imageTargetSrc: ./targets.mind;" 
+      color-space="sRGB" 
+      vr-mode-ui="enabled: false" 
+      device-orientation-permission-ui="enabled: false">
+      
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+      <!-- Everything inside here appears when your camera sees the lovebirds picture -->
       
+        <!-- Spinning 3D Heart Container -->
+        
+          
+          <!-- Bottom Diamond Point of the Heart -->
+          <a-box position="0 -0.15 0" rotation="0 0 45" width="0.7" height="0.7" depth="0.3" color="#FF1744"></a-box>
+          <!-- Left Top Lobe -->
+          <a-sphere position="-0.25 0.1 0" radius="0.35" color="#FF1744"></a-sphere>
+          <!-- Right Top Lobe -->
+          <a-sphere position="0.25 0.1 0" radius="0.35" color="#FF1744"></a-sphere>
+          
+        
       
-        <a-box id="target-box" class="clickable" position="0 0 0.1" scale="0.5 0.5 0.5" color="red"></a-box>
       
     </a-scene>
-
-    <script>
-      let score = 0;
-      const box = document.querySelector("#target-box");
-
-      // Simple game mechanic: click/tap the 3D object to change its color and add points
-      box.addEventListener("click", () => {
-        score++;
-        alert("Score: " + score);
-        box.setAttribute("color", score % 2 === 0 ? "red" : "green");
-      });
-    </script>
   </body>
 </html>
