@@ -142,7 +142,8 @@ function initWave() {
 }
 function initShields() {
   shields = [];
-  const positions =;
+  const positions = new Array(52, 156, 260);
+
   for (let i = 0; i < positions.length; i++) {
     const sx = positions[i];
     for (let r = 0; r < 4; r++) {
