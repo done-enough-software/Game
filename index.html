@@ -23,11 +23,11 @@
     </style>
   </head>
   <body>
-    <div id="status">Checking targets.mind.txt file...</div>
+    <div id="status">Starting AR...</div>
 
     <a-scene
       id="ar-scene"
-      mindar-image="imageTargetSrc: ./targets.mind.txt;"
+      mindar-image="imageTargetSrc: ./targets.mind;"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
     >
@@ -43,27 +43,12 @@
       const sceneEl = document.getElementById("ar-scene");
       const targetEl = document.getElementById("mug-target");
 
-      window.onerror = (msg) => {
-        statusBox.textContent = "Error: " + msg;
-        statusBox.style.color = "#ff4444";
-      };
-
-      fetch("./targets.mind.txt")
-        .then((res) => {
-          if (!res.ok) throw new Error("targets.mind.txt missing (HTTP " + res.status + ")");
-          statusBox.textContent = "File found! Starting camera...";
-        })
-        .catch((err) => {
-          statusBox.textContent = err.message;
-          statusBox.style.color = "#ff4444";
-        });
-
       sceneEl.addEventListener("arReady", () => {
         statusBox.textContent = "AR Ready! Point camera at the mug.";
       });
 
-      sceneEl.addEventListener("arError", (e) => {
-        statusBox.textContent = "AR Error: " + JSON.stringify(e.detail);
+      sceneEl.addEventListener("arError", () => {
+        statusBox.textContent = "AR Error: targets.mind failed to load.";
         statusBox.style.color = "#ff4444";
       });
 
