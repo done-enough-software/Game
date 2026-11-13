@@ -23,11 +23,11 @@
     </style>
   </head>
   <body>
-    <div id="status">Checking targets.mind file...</div>
+    <div id="status">Checking targets.mind.txt file...</div>
 
     <a-scene
       id="ar-scene"
-      mindar-image="imageTargetSrc: ./targets.mind;"
+      mindar-image="imageTargetSrc: ./targets.mind.txt;"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
     >
@@ -48,10 +48,10 @@
         statusBox.style.color = "#ff4444";
       };
 
-      fetch("./targets.mind")
+      fetch("./targets.mind.txt")
         .then((res) => {
-          if (!res.ok) throw new Error("targets.mind missing (HTTP " + res.status + ")");
-          statusBox.textContent = "targets.mind found! Starting camera...";
+          if (!res.ok) throw new Error("targets.mind.txt missing (HTTP " + res.status + ")");
+          statusBox.textContent = "File found! Starting camera...";
         })
         .catch((err) => {
           statusBox.textContent = err.message;
