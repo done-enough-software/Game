@@ -3,49 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Native QR Code Scanner</title>
+  <title>QR Scanner</title>
   <style>
     body {
       font-family: system-ui, -apple-system, sans-serif;
+      background: #121212;
+      color: #fff;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
       margin: 0;
-      background-color: #121212;
-      color: #ffffff;
-      text-align: center;
       padding: 20px;
-      box-sizing: border-box;
+      text-align: center;
     }
     video {
       width: 100%;
       max-width: 400px;
       border-radius: 12px;
-      background: #1e1e1e;
-      margin-top: 15px;
+      background: #000;
+      display: none;
+      margin-top: 16px;
+    }
+    canvas {
       display: none;
     }
-    #status {
-      margin-top: 20px;
-      font-size: 1.05rem;
-      max-width: 400px;
-      word-break: break-word;
-      color: #d1d5db;
-    }
     button, a.btn {
-      display: inline-block;
-      margin-top: 15px;
+      margin-top: 16px;
       padding: 14px 28px;
-      background-color: #2563eb;
-      color: white;
-      border: none;
-      text-decoration: none;
-      border-radius: 8px;
       font-size: 1rem;
       font-weight: bold;
+      color: #fff;
+      background: #2563eb;
+      border: none;
+      border-radius: 8px;
+      text-decoration: none;
       cursor: pointer;
+    }
+    #status {
+      margin-top: 16px;
+      max-width: 400px;
+      word-break: break-word;
     }
   </style>
 </head>
@@ -53,84 +52,92 @@
 
   <h2>Scan a QR Code</h2>
   <button id="start-btn">Start Camera</button>
-  <video id="video" autoplay playsinline></video>
-  <div id="status">Tap "Start Camera" to begin scanning.</div>
+  <video id="video" playsinline muted></video>
+  <canvas id="canvas"></canvas>
+  <div id="status">Tap "Start Camera" to begin.</div>
 
+  <script src="https://cloudflare.com"></script>
   <script>
     const startBtn = document.getElementById("start-btn");
     const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     const statusDiv = document.getElementById("status");
+
     let stream = null;
     let scanning = false;
 
     startBtn.addEventListener("click", async () => {
-      // Check if browser supports native BarcodeDetector
-      if (!("BarcodeDetector" in window)) {
-        statusDiv.textContent = "Your browser does not support built-in QR scanning. Try updating Chrome.";
-        return;
-      }
-
-      statusDiv.textContent = "Requesting camera...";
+      statusDiv.textContent = "Opening camera...";
       startBtn.style.display = "none";
 
       try {
-        // Open the rear camera directly using native browser APIs
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }
+          video: { facingMode: "environment" },
+          audio: false
         });
+
         video.srcObject = stream;
         video.style.display = "block";
-        statusDiv.textContent = "Point your camera at a QR code...";
-        scanning = true;
+        await video.play();
 
-        const barcodeDetector = new BarcodeDetector({ formats: ["qr_code"] });
-        detectLoop(barcodeDetector);
+        if (typeof jsQR === "undefined") {
+          statusDiv.textContent = "Camera is on, but jsQR failed to load from cdnjs.";
+          return;
+        }
+
+        statusDiv.textContent = "Point camera at a QR code...";
+        scanning = true;
+        requestAnimationFrame(scanFrame);
       } catch (err) {
         startBtn.style.display = "inline-block";
-        statusDiv.textContent = `Camera error: ${err.message}`;
+        statusDiv.textContent = "Camera error: " + err.name + " - " + err.message;
       }
     });
 
-    async function detectLoop(detector) {
+    function scanFrame() {
       if (!scanning) return;
 
-      try {
-        const barcodes = await detector.detect(video);
-        if (barcodes.length > 0) {
-          const decodedText = barcodes[0].rawValue;
-          handleResult(decodedText);
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert"
+        });
+
+        if (code && code.data) {
+          handleSuccess(code.data);
           return;
         }
-      } catch (e) {
-        // Ignore frame read errors while video warms up
       }
 
-      requestAnimationFrame(() => detectLoop(detector));
+      requestAnimationFrame(scanFrame);
     }
 
-    function handleResult(decodedText) {
+    function handleSuccess(text) {
       scanning = false;
-      // Stop camera stream
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
       video.style.display = "none";
       startBtn.style.display = "inline-block";
-      startBtn.textContent = "Scan Another Code";
+      startBtn.textContent = "Scan Again";
 
       try {
-        const url = new URL(decodedText);
+        const url = new URL(text);
         if (url.protocol === "http:" || url.protocol === "https:") {
           window.open(url.href, "_blank", "noopener,noreferrer");
-          statusDiv.innerHTML = `
-            <div>Scanned: <strong>${url.href}</strong></div>
-            <a class="btn" href="${url.href}" target="_blank" rel="noopener noreferrer">Open Link in New Tab</a>
-          `;
+          statusDiv.innerHTML =
+            "<div>Scanned: <strong>" + url.href + "</strong></div>" +
+            '<a class="btn" href="' + url.href + '" target="_blank" rel="noopener noreferrer">Open Link in New Tab</a>';
         } else {
-          statusDiv.textContent = `Scanned non-web link: ${decodedText}`;
+          statusDiv.textContent = "Scanned non-web link: " + text;
         }
       } catch (e) {
-        statusDiv.textContent = `Scanned text: ${decodedText}`;
+        statusDiv.textContent = "Scanned text: " + text;
       }
     }
   </script>
