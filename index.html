@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QR Code Scanner</title>
-  <!-- Load the lightweight html5-qrcode library -->
-  <script src="https://unpkg.com" type="text/javascript"></script>
+  <!-- More reliable CDN for html5-qrcode -->
+  <script src="https://jsdelivr.net"></script>
   <style>
     body {
       font-family: system-ui, -apple-system, sans-serif;
@@ -19,56 +19,70 @@
       color: #ffffff;
       text-align: center;
       padding: 20px;
+      box-sizing: border-box;
     }
     #reader {
       width: 100%;
       max-width: 400px;
       border-radius: 12px;
       overflow: hidden;
-      background: #000;
+      background: #1e1e1e;
+      margin-top: 15px;
     }
     #status {
       margin-top: 20px;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       max-width: 400px;
-      word-break: break-all;
+      word-break: break-word;
+      color: #d1d5db;
     }
-    a.btn {
+    button, a.btn {
       display: inline-block;
-      margin-top: 12px;
-      padding: 12px 24px;
+      margin-top: 15px;
+      padding: 14px 28px;
       background-color: #2563eb;
       color: white;
+      border: none;
       text-decoration: none;
       border-radius: 8px;
+      font-size: 1rem;
       font-weight: bold;
+      cursor: pointer;
+    }
+    button:active, a.btn:active {
+      background-color: #1d4ed8;
     }
   </style>
 </head>
 <body>
 
   <h2>Scan a QR Code</h2>
+  <button id="start-btn">Start Camera</button>
   <div id="reader"></div>
-  <div id="status">Point your camera at a QR code...</div>
+  <div id="status">Tap "Start Camera" to begin scanning.</div>
 
   <script>
+    const startBtn = document.getElementById("start-btn");
     const statusDiv = document.getElementById("status");
-    let isScanning = true;
+    let html5QrCode;
+    let isScanning = false;
 
     function onScanSuccess(decodedText) {
       if (!isScanning) return;
 
-      // Check if the scanned text is a valid web URL
       try {
         const url = new URL(decodedText);
         if (url.protocol === "http:" || url.protocol === "https:") {
           isScanning = false;
-          html5QrCode.stop();
+          html5QrCode.stop().then(() => {
+            startBtn.style.display = "inline-block";
+            startBtn.textContent = "Scan Another Code";
+          });
 
-          // Attempt to open in a new tab
-          const newTab = window.open(url.href, "_blank", "noopener,noreferrer");
+          // Try opening in a new tab
+          window.open(url.href, "_blank", "noopener,noreferrer");
 
-          // Provide a clickable button in case the browser's pop-up blocker stops automatic opening
+          // Show fallback button in case Chrome blocks automatic pop-ups
           statusDiv.innerHTML = `
             <div>Scanned: <strong>${url.href}</strong></div>
             <a class="btn" href="${url.href}" target="_blank" rel="noopener noreferrer">Open Link in New Tab</a>
@@ -77,22 +91,36 @@
           statusDiv.textContent = `Scanned non-web link: ${decodedText}`;
         }
       } catch (e) {
-        // If it's plain text instead of a URL, just display it
         statusDiv.textContent = `Scanned text: ${decodedText}`;
       }
     }
 
-    // Initialize the scanner
-    const html5QrCode = new Html5Qrcode("reader");
+    startBtn.addEventListener("click", async () => {
+      if (typeof Html5Qrcode === "undefined") {
+        statusDiv.textContent = "Error: Scanner library failed to load. Check your internet connection.";
+        return;
+      }
 
-    // Start using the back camera ("environment")
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      onScanSuccess
-    ).catch(err => {
-      statusDiv.textContent = "Camera access denied or unavailable. Make sure you are using HTTPS or localhost.";
-      console.error(err);
+      statusDiv.textContent = "Requesting camera access...";
+      startBtn.style.display = "none";
+
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
+
+      try {
+        isScanning = true;
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          onScanSuccess
+        );
+        statusDiv.textContent = "Point your camera at a QR code...";
+      } catch (err) {
+        isScanning = false;
+        startBtn.style.display = "inline-block";
+        statusDiv.textContent = `Camera error: ${err}. Make sure Chrome has camera permission in your phone settings.`;
+      }
     });
   </script>
 
