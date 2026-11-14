@@ -1,64 +1,100 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://aframe.io"></script>
-    <script src="https://jsdelivr.net"></script>
-    <style>
-      body { margin: 0; overflow: hidden; }
-      #status {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.85);
-        color: #00ff00;
-        font-family: sans-serif;
-        font-size: 15px;
-        padding: 12px;
-        border-radius: 8px;
-        z-index: 9999;
-        text-align: center;
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Scanner</title>
+  <!-- Load the lightweight html5-qrcode library -->
+  <script src="https://unpkg.com" type="text/javascript"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #121212;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+    }
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 1.1rem;
+      max-width: 400px;
+      word-break: break-all;
+    }
+    a.btn {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 12px 24px;
+      background-color: #2563eb;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Scan a QR Code</h2>
+  <div id="reader"></div>
+  <div id="status">Point your camera at a QR code...</div>
+
+  <script>
+    const statusDiv = document.getElementById("status");
+    let isScanning = true;
+
+    function onScanSuccess(decodedText) {
+      if (!isScanning) return;
+
+      // Check if the scanned text is a valid web URL
+      try {
+        const url = new URL(decodedText);
+        if (url.protocol === "http:" || url.protocol === "https:") {
+          isScanning = false;
+          html5QrCode.stop();
+
+          // Attempt to open in a new tab
+          const newTab = window.open(url.href, "_blank", "noopener,noreferrer");
+
+          // Provide a clickable button in case the browser's pop-up blocker stops automatic opening
+          statusDiv.innerHTML = `
+            <div>Scanned: <strong>${url.href}</strong></div>
+            <a class="btn" href="${url.href}" target="_blank" rel="noopener noreferrer">Open Link in New Tab</a>
+          `;
+        } else {
+          statusDiv.textContent = `Scanned non-web link: ${decodedText}`;
+        }
+      } catch (e) {
+        // If it's plain text instead of a URL, just display it
+        statusDiv.textContent = `Scanned text: ${decodedText}`;
       }
-    </style>
-  </head>
-  <body>
-    <div id="status">Starting AR...</div>
+    }
 
-    <a-scene
-      id="ar-scene"
-      mindar-image="imageTargetSrc: ./targets.mind;"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-    >
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    // Initialize the scanner
+    const html5QrCode = new Html5Qrcode("reader");
 
-      <a-image
-        id="mug-target"
-        mindar-image-target="targetIndex: 0"
-        src="./symbol.png"
-        position="0 0 0.15"
-        height="0.6"
-        width="0.6"
-      ></a-image>
-    </a-scene>
+    // Start using the back camera ("environment")
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      onScanSuccess
+    ).catch(err => {
+      statusDiv.textContent = "Camera access denied or unavailable. Make sure you are using HTTPS or localhost.";
+      console.error(err);
+    });
+  </script>
 
-    <script>
-      const statusBox = document.getElementById("status");
-      const sceneEl = document.getElementById("ar-scene");
-      const targetEl = document.getElementById("mug-target");
-
-      sceneEl.addEventListener("arReady", () => {
-        statusBox.textContent = "AR Ready! Point camera at the mug.";
-      });
-
-      targetEl.addEventListener("targetFound", () => {
-        statusBox.textContent = "MUG FOUND!";
-      });
-
-      targetEl.addEventListener("targetLost", () => {
-        statusBox.textContent = "Scanning for mug...";
-      });
-    </script>
-  </body>
+</body>
 </html>
