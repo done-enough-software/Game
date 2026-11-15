@@ -1,21 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <!-- Makes the page fit a phone screen properly instead of zooming out -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
   <link rel="manifest" href="./manifest.json" />
   <script src="https://onesignal.com" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(async function(OneSignal) {
       await OneSignal.init({
-        appId: "YOUR-APP-ID",
-        serviceWorkerParam: { scope: "/your-game/" },
-        serviceWorkerPath: "your-game/OneSignalSDKWorker.js"
+        appId: "a812b43c-b985-4c58-aed9-b7c2307a87c9",
+        serviceWorkerParam: { scope: "/Game/" },
+        serviceWorkerPath: "Game/OneSignalSDKWorker.js"
       });
     });
   </script>
+
+  <!-- Styles the button so it is large and centered -->
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #111111;
+    }
+    button {
+      font-size: 24px;
+      padding: 20px 40px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <button onclick="subscribeMe()">1. Tap to Subscribe</button>
+  <button onclick="subscribeMe()">Enable Notifications</button>
 
   <script>
     function subscribeMe() {
