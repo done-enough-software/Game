@@ -1,52 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Google QR Code</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 20px;
-      text-align: center;
-    }
-    #qrcode {
-      background-color: #ffffff;
-      padding: 18px;
-      border-radius: 12px;
-      margin-top: 16px;
-      display: inline-block;
-    }
-    #qrcode img, #qrcode canvas {
-      display: block;
-    }
-  </style>
-</head>
-<body>
-
-  <h2>Scan to Open Google</h2>
-  <div id="qrcode"></div>
-  <p style="color: #9ca3af; margin-top: 14px;">https://google.com</p>
-
-  <script src="https://cloudflare.com"></script>
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://onesignal.com" defer></script>
   <script>
-    new QRCode(document.getElementById("qrcode"), {
-      text: "https://google.com",
-      width: 240,
-      height: 240,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "YOUR-APP-ID",
+        serviceWorkerParam: { scope: "/your-game/" },
+        serviceWorkerPath: "your-game/OneSignalSDKWorker.js"
+      });
     });
   </script>
+</head>
+<body>
+  <button onclick="subscribeMe()">1. Tap to Subscribe</button>
 
+  <script>
+    function subscribeMe() {
+      window.OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.Notifications.requestPermission();
+      });
+    }
+  </script>
 </body>
 </html>
