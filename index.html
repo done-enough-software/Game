@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Scanner</title>
+  <title>Google QR Code</title>
   <style>
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: #121212;
-      color: #fff;
+      background-color: #121212;
+      color: #ffffff;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -18,128 +18,34 @@
       padding: 20px;
       text-align: center;
     }
-    video {
-      width: 100%;
-      max-width: 400px;
+    #qrcode {
+      background-color: #ffffff;
+      padding: 18px;
       border-radius: 12px;
-      background: #000;
-      display: none;
       margin-top: 16px;
+      display: inline-block;
     }
-    canvas {
-      display: none;
-    }
-    button, a.btn {
-      margin-top: 16px;
-      padding: 14px 28px;
-      font-size: 1rem;
-      font-weight: bold;
-      color: #fff;
-      background: #2563eb;
-      border: none;
-      border-radius: 8px;
-      text-decoration: none;
-      cursor: pointer;
-    }
-    #status {
-      margin-top: 16px;
-      max-width: 400px;
-      word-break: break-word;
+    #qrcode img, #qrcode canvas {
+      display: block;
     }
   </style>
 </head>
 <body>
 
-  <h2>Scan a QR Code</h2>
-  <button id="start-btn">Start Camera</button>
-  <video id="video" playsinline muted></video>
-  <canvas id="canvas"></canvas>
-  <div id="status">Tap "Start Camera" to begin.</div>
+  <h2>Scan to Open Google</h2>
+  <div id="qrcode"></div>
+  <p style="color: #9ca3af; margin-top: 14px;">https://google.com</p>
 
   <script src="https://cloudflare.com"></script>
   <script>
-    const startBtn = document.getElementById("start-btn");
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    const statusDiv = document.getElementById("status");
-
-    let stream = null;
-    let scanning = false;
-
-    startBtn.addEventListener("click", async () => {
-      statusDiv.textContent = "Opening camera...";
-      startBtn.style.display = "none";
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-          audio: false
-        });
-
-        video.srcObject = stream;
-        video.style.display = "block";
-        await video.play();
-
-        if (typeof jsQR === "undefined") {
-          statusDiv.textContent = "Camera is on, but jsQR failed to load from cdnjs.";
-          return;
-        }
-
-        statusDiv.textContent = "Point camera at a QR code...";
-        scanning = true;
-        requestAnimationFrame(scanFrame);
-      } catch (err) {
-        startBtn.style.display = "inline-block";
-        statusDiv.textContent = "Camera error: " + err.name + " - " + err.message;
-      }
+    new QRCode(document.getElementById("qrcode"), {
+      text: "https://google.com",
+      width: 240,
+      height: 240,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
     });
-
-    function scanFrame() {
-      if (!scanning) return;
-
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert"
-        });
-
-        if (code && code.data) {
-          handleSuccess(code.data);
-          return;
-        }
-      }
-
-      requestAnimationFrame(scanFrame);
-    }
-
-    function handleSuccess(text) {
-      scanning = false;
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      video.style.display = "none";
-      startBtn.style.display = "inline-block";
-      startBtn.textContent = "Scan Again";
-
-      try {
-        const url = new URL(text);
-        if (url.protocol === "http:" || url.protocol === "https:") {
-          window.open(url.href, "_blank", "noopener,noreferrer");
-          statusDiv.innerHTML =
-            "<div>Scanned: <strong>" + url.href + "</strong></div>" +
-            '<a class="btn" href="' + url.href + '" target="_blank" rel="noopener noreferrer">Open Link in New Tab</a>';
-        } else {
-          statusDiv.textContent = "Scanned non-web link: " + text;
-        }
-      } catch (e) {
-        statusDiv.textContent = "Scanned text: " + text;
-      }
-    }
   </script>
 
 </body>
