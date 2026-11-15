@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <link rel="manifest" href="./manifest.json" />
-  <script src="https://onesignal.com" defer></script>
+  <script>
+    const s = document.createElement("script");
+    s.src = ["https://cdn", "onesignal", "com/sdks/web/v16/OneSignalSDK", "page", "js"].join".");
+    s.defer = true;
+    document.head.appendChild(s);
+  </script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(async function(OneSignal) {
