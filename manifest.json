@@ -1,6 +1,6 @@
 {
 "name": "Test Game",
-"short_name:: "TestGame",
+"short_name: "TestGame",
 "start_url": ./index.html",
 "display": "standalone",
 }
