@@ -1,36 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- Makes the page fit a phone screen properly instead of zooming out -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
   <link rel="manifest" href="./manifest.json" />
   <script>
     const s = document.createElement("script");
-    s.src = ["https://cdn", "onesignal", "com/sdks/web/v16/OneSignalSDK", "page", "js"].join".");
+    s.src = ["https://cdn", "onesignal", "com/sdks/web/v16/OneSignalSDK", "page", "js"].join(".");
     s.defer = true;
     document.head.appendChild(s);
   </script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(async function(OneSignal) {
-      await OneSignal.init({
-        appId: "a812b43c-b985-4c58-aed9-b7c2307a87c9",
-        serviceWorkerParam: { scope: "/Game/" },
-        serviceWorkerPath: "/Game/OneSignalSDKWorker.js"
-      });
+      try {
+        await OneSignal.init({
+          appId: "a812b43c-b985-4c58-aed9-b7c2307a87c9",
+          safari_web_id: "web.onesignal.auto.38b1a4de-a361-440e-ae28-b7c05790af2",
+          serviceWorkerParam: { scope: "/Game/" },
+          serviceWorkerPath: "/Game/OneSignalSDKWorker.js"
+        });
+        document.getElementById("status").innerText = "Ready! Tap the button.";
+      } catch (err) {
+        document.getElementById("status").innerText = "Init Error: " + err.message;
+      }
     });
   </script>
-
-  <!-- Styles the button so it is large and centered -->
   <style>
     body {
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       height: 100vh;
       margin: 0;
       background-color: #111111;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
     }
     button {
       font-size: 24px;
@@ -41,15 +48,27 @@
       border-radius: 12px;
       cursor: pointer;
     }
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #ffcc00;
+    }
   </style>
 </head>
 <body>
   <button onclick="subscribeMe()">Enable Notifications</button>
+  <div id="status">Loading OneSignal...</div>
 
   <script>
     function subscribeMe() {
+      document.getElementById("status").innerText = "Button clicked...";
       window.OneSignalDeferred.push(async function(OneSignal) {
-        await OneSignal.Notifications.requestPermission();
+        try {
+          await OneSignal.Notifications.requestPermission();
+          document.getElementById("status").innerText = "Permission: " + Notification.permission;
+        } catch (err) {
+          document.getElementById("status").innerText = "Click Error: " + err.message;
+        }
       });
     }
   </script>
