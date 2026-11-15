@@ -1,1 +1,2 @@
-importScripts("https://onesignal.com");
+const url = "https://" + "://onesignal.com";
+importScripts(url);
